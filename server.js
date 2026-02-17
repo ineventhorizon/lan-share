@@ -517,10 +517,17 @@ app.get("/upload", (req, res) => {
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     .dropzone {
-      border: 2px dashed #999; border-radius: 14px; padding: 24px; text-align: center;
-      color: #666; background: #fafafa;
+      border: 2px dashed #999;
+      border-radius: 14px;
+      padding: 24px;
+      text-align: center;
+      color: #666;
+      background: #fafafa;
+      cursor: pointer;
+      user-select: none;
     }
     .dropzone.dragover { background: #f0f7ff; border-color: #0d6efd; color: #0d6efd; }
+    .filehint { font-size: 0.9rem; color: #666; }
   </style>
 </head>
 <body class="bg-light">
@@ -543,16 +550,27 @@ app.get("/upload", (req, res) => {
               <label class="form-label">Student ID (required)</label>
               <input class="form-control" name="studentId" ${open ? "required" : "disabled"} placeholder="e.g. 2020123456">
             </div>
+
             <div class="col-12">
-              <div id="dz" class="dropzone ${open ? "" : "opacity-50"}">
-                <div class="fw-semibold">Drag & drop files here</div>
-                <div class="small">or click to choose</div>
-                <input id="fileInput" class="form-control mt-3" type="file" name="files" multiple ${open ? "required" : "disabled"}>
-                <div class="small mt-2 text-muted">
+              <!-- Reliable: label triggers the file picker -->
+              <label id="dz" class="dropzone ${open ? "" : "opacity-50"}" for="fileInput">
+                <div class="fw-semibold">Click to choose files</div>
+                <div class="small">or drag & drop here</div>
+                <div class="filehint mt-2">
                   Allowed: ${[...ALLOWED_EXT].join(" ")} — Max ${MAX_FILE_MB}MB each
                 </div>
-              </div>
+                <div id="selected" class="small mt-2"></div>
+              </label>
+
+              <!-- Keep input outside the label; label 'for' opens it -->
+              <input id="fileInput"
+                     class="form-control mt-3"
+                     type="file"
+                     name="files"
+                     multiple
+                     ${open ? "required" : "disabled"}>
             </div>
+
             <div class="col-12 d-flex gap-2">
               <button class="btn btn-primary" type="submit" ${open ? "" : "disabled"}>Upload</button>
               <a class="btn btn-outline-secondary" href="/files">Browse files</a>
@@ -567,18 +585,47 @@ app.get("/upload", (req, res) => {
 <script>
   const dz = document.getElementById('dz');
   const input = document.getElementById('fileInput');
-  dz.addEventListener('click', () => input && !input.disabled && input.click());
-  dz.addEventListener('dragover', (e) => { e.preventDefault(); if (!input.disabled) dz.classList.add('dragover'); });
+  const selected = document.getElementById('selected');
+
+  function showSelected() {
+    if (!input.files || input.files.length === 0) {
+      selected.textContent = '';
+      return;
+    }
+    const names = Array.from(input.files).map(f => f.name);
+    selected.textContent = "Selected: " + names.join(", ");
+  }
+
+  input.addEventListener('change', showSelected);
+
+  // Drag/drop: highlight only. (Setting input.files from drop is unreliable in Safari.)
+  dz.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    if (!input.disabled) dz.classList.add('dragover');
+  });
   dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
   dz.addEventListener('drop', (e) => {
     e.preventDefault();
     dz.classList.remove('dragover');
-    if (!input.disabled) input.files = e.dataTransfer.files;
+
+    // Try to accept dropped files where supported
+    if (input.disabled) return;
+
+    try {
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        // Some browsers allow this assignment, some (Safari) won't.
+        input.files = e.dataTransfer.files;
+        showSelected();
+      }
+    } catch (_) {
+      // If it fails, user can still click and choose files reliably.
+    }
   });
 </script>
 </body>
 </html>`);
 });
+
 
 // Upload handler (students). Enforced by upload-on flag.
 app.post(
