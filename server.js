@@ -719,4 +719,5 @@ app.use((err, req, res, next) => {
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`LAN Share running on http://0.0.0.0:${PORT}`);
   console.log(`Uploads are ${uploadsEnabledNow() ? "OPEN" : "CLOSED"} (toggle with: touch upload-on / rm upload-on)`);
+  console.log(`Shared Files are ${sharedEnabledNow() ? "OPEN" : "CLOSED"} (toggle with: touch shared-on / rm shared-on)`);
 });
