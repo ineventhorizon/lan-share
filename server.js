@@ -140,7 +140,9 @@ function uploadsBadgeHtml() {
     uploadsOpen ? "OPEN" : "CLOSED"
   }</span>`;
 }
-
+app.use("/static/bootstrap", express.static(
+  path.join(__dirname, "node_modules/bootstrap/dist")
+));
 // ---------- Routes ----------
 app.get("/", (req, res) => res.redirect("/files"));
 
@@ -248,8 +250,7 @@ app.get("/files", async (req, res) => {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>LAN Share</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
+<link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet"></head>
 <body class="bg-light">
   <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -399,8 +400,7 @@ app.get("/submissions", async (req, res) => {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Submissions (Names)</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
+<link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet"></head>
 <body class="bg-light">
   <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -514,8 +514,7 @@ app.get("/upload", (req, res) => {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Upload Submission</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
+<link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet">  <style>
     .dropzone {
       border: 2px dashed #999;
       border-radius: 14px;
@@ -643,8 +642,7 @@ app.post(
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(`<!doctype html>
 <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<title>Upload Complete</title></head>
+<link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet"><title>Upload Complete</title></head>
 <body class="bg-light">
 <div class="container py-4">
   <div class="card shadow-sm">
