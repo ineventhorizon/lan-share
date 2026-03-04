@@ -43,7 +43,7 @@ function sharedEnabledNow() {
 
 // Upload policy
 const MAX_FILE_MB = 50;
-const MAX_FILES_PER_UPLOAD = 10;
+const MAX_FILES_PER_UPLOAD = 1;
 const ALLOWED_EXT = new Set([".pdf", ".zip", ".java", ".txt", ".png", ".jpg", ".jpeg"]);
 
 // ---------- Helpers ----------
@@ -581,7 +581,16 @@ app.get("/upload", (req, res) => {
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label">Student ID (required)</label>
-              <input class="form-control" name="studentId" ${open ? "required" : "disabled"} placeholder="e.g. 2020123456">
+              <input
+              class="form-control"
+              name="studentId"
+              type="text"
+              pattern="[0-9]{11}"
+              maxlength="11"
+              inputmode="numeric"
+              ${open ? "required" : "disabled"}
+              placeholder="11 digit student number">
+              <div class="form-text">Must be exactly 11 digits.</div>
             </div>
 
             <div class="col-12">
@@ -661,7 +670,10 @@ app.post(
   upload.array("files", MAX_FILES_PER_UPLOAD),
   (req, res) => {
     const studentIdRaw = (req.body.studentId || "").trim();
-    const studentId = studentIdRaw.replace(/[^a-zA-Z0-9_-]/g, "") || "unknown";
+    if (!/^[0-9]{11}$/.test(studentIdRaw)) {
+      return res.status(400).send("Student ID must be exactly 11 digits.");
+    }
+    const studentId = studentIdRaw;
     const files = (req.files || []).map((f) => f.filename);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
