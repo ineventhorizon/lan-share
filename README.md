@@ -2,66 +2,60 @@
 
 A simple **Node.js + Express local network file sharing system** designed for **offline lab environments**.
 
-🚀 Quick Start
+---
 
-If you already have Node.js installed, you can start the server in under 1 minute.
+# 🚀 Quick Start
 
-1️⃣ Install dependencies
+
+### 1️⃣ Install dependencies
+
+```bash
 npm install express multer bootstrap
-2️⃣ Start the server
+```
+
+### 2️⃣ Start the server
+
+```bash
 node server.js
+```
 
 You will see:
 
+```
 LAN Share running on http://0.0.0.0:3000
-3️⃣ Find your local IP
+```
 
-macOS / Linux
 
-ipconfig getifaddr en0
+### 3️⃣ Students connect using
 
-or
-
-ifconfig
-
-Windows
-
-ipconfig
-
-Look for IPv4 Address.
-
-Example:
-
-192.168.1.25
-4️⃣ Students connect using
+```
 http://YOUR_IP:3000
+```
 
 Example:
 
+```
 http://192.168.1.25:3000
-5️⃣ Optional controls
+```
+
+### 4️⃣ Optional controls
 
 Open shared files:
 
+```
 touch shared-on
+```
 
 Open assignment submissions:
 
+```
 touch upload-on
+```
 
 Disable uploads:
 
+```
 rm upload-on
-Students access the server using:
-
-```
-http://INSTRUCTOR_IP:3000
-```
-
-Example:
-
-```
-http://192.168.1.25:3000
 ```
 
 ---
@@ -383,6 +377,8 @@ Uploads immediately stop.
 
 ---
 
+Instructor grading:
+
 ```
 shared/submissions/
 ```
@@ -430,4 +426,3 @@ touch upload-on
 ```
 
 ---
-
