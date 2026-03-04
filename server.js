@@ -1,20 +1,24 @@
 /**
  * CENG114 LAN Share (single-file)
  *
- * Adjustments you requested:
+ * Current behavior:
  * ✅ Remove "Notes" field from upload UI
  * ✅ Hide "submissions/" from the /files browser always
  * ✅ Show submissions ONLY when uploads are OPEN (upload-on exists)
  * ✅ Submissions have their OWN BUTTON (not mixed into /files)
  * ✅ Submissions are NAMES ONLY (no preview/download for anyone)
- * ✅ Public files (non-submissions) can be previewed/downloaded
+ * ✅ Public files (non-submissions): PREVIEW ONLY (NO download button)
  * ✅ Hidden files/folders not shown (.DS_Store, .git, etc.)
  * ✅ Uploads toggle without restart:
  *      Enable:  touch upload-on
  *      Disable: rm upload-on
  *
+ * Offline Bootstrap:
+ *   npm i bootstrap
+ *   (served locally from /static/bootstrap)
+ *
  * Setup:
- *   npm i express multer
+ *   npm i express multer bootstrap
  *
  * Run:
  *   node server.js
@@ -31,6 +35,11 @@ const PORT = 3000;
 const SHARE_DIR = path.join(__dirname, "shared");
 const SUBMISSIONS_DIR = path.join(SHARE_DIR, "submissions");
 const UPLOAD_FLAG = path.join(__dirname, "upload-on");
+const SHARED_FLAG = path.join(__dirname, "shared-on");
+
+function sharedEnabledNow() {
+  return fs.existsSync(SHARED_FLAG);
+}
 
 // Upload policy
 const MAX_FILE_MB = 50;
@@ -121,6 +130,12 @@ const upload = multer({
   },
 });
 
+// ---------- Serve Bootstrap locally (offline) ----------
+app.use(
+  "/static/bootstrap",
+  express.static(path.join(__dirname, "node_modules/bootstrap/dist"))
+);
+
 // ---------- Shared UI bits ----------
 function topButtonsHtml(currentDir) {
   const uploadsOpen = uploadsEnabledNow();
@@ -140,17 +155,49 @@ function uploadsBadgeHtml() {
     uploadsOpen ? "OPEN" : "CLOSED"
   }</span>`;
 }
-app.use("/static/bootstrap", express.static(
-  path.join(__dirname, "node_modules/bootstrap/dist")
-));
+
+function statusBadgesHtml() {
+  const uploadsOpen = uploadsEnabledNow();
+  const sharedOpen = sharedEnabledNow();
+
+  return `
+    Shared: <span class="badge ${sharedOpen ? "text-bg-success" : "text-bg-secondary"}">${sharedOpen ? "OPEN" : "CLOSED"}</span>
+    <span class="ms-2">Uploads: <span class="badge ${uploadsOpen ? "text-bg-success" : "text-bg-secondary"}">${uploadsOpen ? "OPEN" : "CLOSED"}</span></span>
+  `;
+}
+
 // ---------- Routes ----------
 app.get("/", (req, res) => res.redirect("/files"));
 
 /**
  * Public file browser: ONLY shows ./shared content EXCEPT submissions/
  * - submissions is hidden from here always
+ * - files have PREVIEW ONLY (no download button)
  */
 app.get("/files", async (req, res) => {
+  if (!sharedEnabledNow()) {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  return res.status(403).send(`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Shared Closed</title>
+  <link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+  <div class="container py-5">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h4 class="mb-2">Shared files are closed</h4>
+        <p class="text-muted mb-3">Please wait for the instructor to open shared files.</p>
+        <a class="btn btn-primary" href="/upload">Go to Upload</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`);
+}
   try {
     let relDir = normRel((req.query.dir || "").toString()).replace(/\/+$/, "");
     if (!relDir) relDir = "";
@@ -206,7 +253,9 @@ app.get("/files", async (req, res) => {
         const isLast = i === parts.length - 1;
         return isLast
           ? `<li class="breadcrumb-item active">${escapeHtml(p)}</li>`
-          : `<li class="breadcrumb-item"><a href="/files?dir=${encodeURIComponent(acc)}">${escapeHtml(p)}</a></li>`;
+          : `<li class="breadcrumb-item"><a href="/files?dir=${encodeURIComponent(acc)}">${escapeHtml(
+              p
+            )}</a></li>`;
       }),
     ].join("");
 
@@ -226,19 +275,17 @@ app.get("/files", async (req, res) => {
 
         const fileEnc = encodeURIComponent(rel);
 
-        const previewBtn = isPreviewable(name)
+        // PREVIEW ONLY: if not previewable, show "no preview"
+        const actions = isPreviewable(name)
           ? `<a class="btn btn-sm btn-outline-primary" target="_blank" href="/open?file=${fileEnc}">Preview</a>`
-          : "";
+          : `<span class="text-muted small">no preview</span>`;
 
         return `<tr>
           <td>📄</td>
           <td>${escapeHtml(name)}</td>
           <td class="text-muted">${escapeHtml(size)}</td>
           <td class="text-muted">${escapeHtml(mtime)}</td>
-          <td class="d-flex gap-2">
-            ${previewBtn}
-            <a class="btn btn-sm btn-primary" href="/download?file=${fileEnc}">Download</a>
-          </td>
+          <td>${actions}</td>
         </tr>`;
       })
       .join("");
@@ -250,7 +297,8 @@ app.get("/files", async (req, res) => {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>LAN Share</title>
-<link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet"></head>
+  <link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+</head>
 <body class="bg-light">
   <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -259,7 +307,7 @@ app.get("/files", async (req, res) => {
         <nav aria-label="breadcrumb">
           <ol class="breadcrumb mb-0">${crumbs}</ol>
         </nav>
-        <div class="small mt-2">${uploadsBadgeHtml()}</div>
+        <div class="small mt-2">${statusBadgesHtml()}</div>
       </div>
       <div class="d-flex gap-2">
         ${topButtonsHtml(relDir)}
@@ -316,11 +364,9 @@ app.get("/submissions", async (req, res) => {
   }
 
   try {
-    // Optional: allow browsing inside submissions via ?dir=
     let relDir = normRel((req.query.dir || "").toString()).replace(/\/+$/, "");
     if (!relDir) relDir = "submissions";
 
-    // Force everything under submissions
     if (!isSubmissionsPath(relDir)) relDir = "submissions";
 
     const absDir = resolveInsideShare(relDir);
@@ -353,19 +399,19 @@ app.get("/submissions", async (req, res) => {
       return a.e.name.localeCompare(b.e.name);
     });
 
-    // breadcrumbs
     const parts = relDir ? relDir.split("/").filter(Boolean) : [];
     let acc = "";
     const crumbs = [
       `<li class="breadcrumb-item"><a href="/files">Files</a></li>`,
       `<li class="breadcrumb-item"><a href="/submissions">Submissions</a></li>`,
       ...parts.slice(1).map((p, i) => {
-        // slice(1) removes "submissions" itself from additional crumb generation
         acc = acc ? `${acc}/${p}` : `submissions/${p}`;
         const isLast = i === parts.slice(1).length - 1;
         return isLast
           ? `<li class="breadcrumb-item active">${escapeHtml(p)}</li>`
-          : `<li class="breadcrumb-item"><a href="/submissions?dir=${encodeURIComponent(acc)}">${escapeHtml(p)}</a></li>`;
+          : `<li class="breadcrumb-item"><a href="/submissions?dir=${encodeURIComponent(acc)}">${escapeHtml(
+              p
+            )}</a></li>`;
       }),
     ].join("");
 
@@ -400,7 +446,8 @@ app.get("/submissions", async (req, res) => {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Submissions (Names)</title>
-<link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet"></head>
+  <link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+</head>
 <body class="bg-light">
   <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -409,7 +456,7 @@ app.get("/submissions", async (req, res) => {
         <nav aria-label="breadcrumb">
           <ol class="breadcrumb mb-0">${crumbs}</ol>
         </nav>
-        <div class="small mt-2">${uploadsBadgeHtml()}</div>
+        <div class="small mt-2">${statusBadgesHtml()}</div>
       </div>
       <div class="d-flex gap-2">
         <a class="btn btn-outline-secondary" href="/submissions?dir=${encodeURIComponent(relDir)}">Refresh</a>
@@ -469,6 +516,9 @@ app.get("/open", async (req, res) => {
   if (isSubmissionsPath(relFile)) {
     return res.status(403).send("Submissions cannot be viewed.");
   }
+  if (!sharedEnabledNow()) {
+  return res.status(403).send("Shared files are closed.");
+  }
 
   const absFile = resolveInsideShare(relFile);
   if (!absFile) return res.status(403).send("Forbidden");
@@ -482,26 +532,9 @@ app.get("/open", async (req, res) => {
   }
 });
 
-// Download route — HARD BLOCK submissions always
-app.get("/download", async (req, res) => {
-  const relFile = normRel((req.query.file || "").toString());
-  if (!relFile) return res.status(400).send("Missing file");
-  if (path.basename(relFile).startsWith(".")) return res.status(404).send("Not found");
-
-  if (isSubmissionsPath(relFile)) {
-    return res.status(403).send("Submissions cannot be downloaded.");
-  }
-
-  const absFile = resolveInsideShare(relFile);
-  if (!absFile) return res.status(403).send("Forbidden");
-
-  try {
-    const st = await fs.promises.stat(absFile);
-    if (!st.isFile()) return res.status(404).send("Not found");
-    res.download(absFile, path.basename(absFile));
-  } catch {
-    res.status(404).send("Not found");
-  }
+// OPTIONAL: keep /download route but disable it globally (since you want preview-only)
+app.get("/download", (req, res) => {
+  res.status(404).send("Downloads are disabled. Use Preview.");
 });
 
 // Upload page (students). Only works when upload-on flag exists.
@@ -514,7 +547,8 @@ app.get("/upload", (req, res) => {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Upload Submission</title>
-<link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet">  <style>
+  <link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <style>
     .dropzone {
       border: 2px dashed #999;
       border-radius: 14px;
@@ -533,7 +567,7 @@ app.get("/upload", (req, res) => {
   <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h3 class="mb-0">CENG114 — Submission Upload</h3>
-      <a class="btn btn-outline-secondary" href="/files">Back to files</a>
+      ${sharedEnabledNow() ? `<a class="btn btn-outline-secondary" href="/files">Back to files</a>` : ``}
     </div>
 
     <div class="alert ${open ? "alert-success" : "alert-secondary"}">
@@ -551,7 +585,6 @@ app.get("/upload", (req, res) => {
             </div>
 
             <div class="col-12">
-              <!-- Reliable: label triggers the file picker -->
               <label id="dz" class="dropzone ${open ? "" : "opacity-50"}" for="fileInput">
                 <div class="fw-semibold">Click to choose files</div>
                 <div class="small">or drag & drop here</div>
@@ -561,7 +594,6 @@ app.get("/upload", (req, res) => {
                 <div id="selected" class="small mt-2"></div>
               </label>
 
-              <!-- Keep input outside the label; label 'for' opens it -->
               <input id="fileInput"
                      class="form-control mt-3"
                      type="file"
@@ -572,7 +604,7 @@ app.get("/upload", (req, res) => {
 
             <div class="col-12 d-flex gap-2">
               <button class="btn btn-primary" type="submit" ${open ? "" : "disabled"}>Upload</button>
-              <a class="btn btn-outline-secondary" href="/files">Browse files</a>
+              ${sharedEnabledNow() ? `<a class="btn btn-outline-secondary" href="/files">Browse files</a>` : ``}
               ${open ? `<a class="btn btn-outline-warning" href="/submissions">Submissions (names)</a>` : ""}
             </div>
           </div>
@@ -597,7 +629,6 @@ app.get("/upload", (req, res) => {
 
   input.addEventListener('change', showSelected);
 
-  // Drag/drop: highlight only. (Setting input.files from drop is unreliable in Safari.)
   dz.addEventListener('dragover', (e) => {
     e.preventDefault();
     if (!input.disabled) dz.classList.add('dragover');
@@ -606,27 +637,21 @@ app.get("/upload", (req, res) => {
   dz.addEventListener('drop', (e) => {
     e.preventDefault();
     dz.classList.remove('dragover');
-
-    // Try to accept dropped files where supported
     if (input.disabled) return;
 
     try {
       if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
-        // Some browsers allow this assignment, some (Safari) won't.
         input.files = e.dataTransfer.files;
         showSelected();
       }
-    } catch (_) {
-      // If it fails, user can still click and choose files reliably.
-    }
+    } catch (_) {}
   });
 </script>
 </body>
 </html>`);
 });
 
-
-// Upload handler (students). Enforced by upload-on flag.
+// Upload handler
 app.post(
   "/upload",
   (req, res, next) => {
@@ -662,7 +687,7 @@ app.post(
         </ul>
       </div>
 
-      <a class="btn btn-primary" href="/files">Back to files</a>
+      ${sharedEnabledNow() ? `<a class="btn btn-primary" href="/files">Back to files</a>` : ``}
       <a class="btn btn-outline-secondary ms-2" href="/upload">Upload another</a>
       <a class="btn btn-outline-warning ms-2" href="/submissions">Submissions (names)</a>
     </div>
