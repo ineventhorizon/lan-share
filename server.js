@@ -75,7 +75,7 @@ function extLower(name) {
 
 function isPreviewable(name) {
   const ext = extLower(name);
-  return ext === ".pdf" || ext === ".png" || ext === ".jpg" || ext === ".jpeg" || ext === ".gif" || ext === ".webp";
+  return ext === ".pdf" || ext === ".png" || ext === ".jpg" || ext === ".jpeg" || ext === ".gif" || ext === ".webp" || ext ===".java";
 }
 
 function uploadsEnabledNow() {
